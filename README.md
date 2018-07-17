@@ -1,2 +1,0 @@
-# hyperbolic_network
-
