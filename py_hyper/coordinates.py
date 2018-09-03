@@ -1,5 +1,6 @@
 from math import pi, sin, cos, acos, sqrt, sinh, cosh, acosh
 
+
 class Cartesian:
     def __init__(self, x: float = 1, y: float = 0):
         self.__x = x
@@ -110,9 +111,10 @@ class Polar:
     
 class Hyperbolic(Polar):
     __zeta = 1
+
     def __init__(self, theta: float = 0, r: float = 1):
         Polar.__init__(self, theta, r)
-        
+
     @classmethod
     def setZeta(cls, zeta: "Float > 0, equals to 1/R" = 1):
         if zeta <= 0: raise ValueError('Zeta should be larger than 0.')

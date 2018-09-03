@@ -32,6 +32,7 @@ class HyperbolicRandomNet : public UndirectedNet
 		void printDetails();
 		std::string pointsXYInfo();
 		std::string pointsThetaRInfo();
+        HyperbolicPoint *get_points(){return points;}
 	private:
 		void prod();
 	    double R;

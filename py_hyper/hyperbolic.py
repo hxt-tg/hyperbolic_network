@@ -35,6 +35,7 @@ class HyperbolicRandomGraph:
             for j in range(i+1, len(p)):
                 if random()<1/(exp(0.83*(Hyperbolic.distance(p[i],
                                                              p[j]) - self.__max_r))):
+#                 if Hyperbolic.distance(p[i], p[j]) < self.__max_r:
                     self.__links.append((p[i], p[j]))
                     self.__link_pairs.append((i, j))
         Hyperbolic.setZeta(raw_zeta)
@@ -80,6 +81,6 @@ class HyperbolicRandomGraph:
         plt.show()
         
 hrg = HyperbolicRandomGraph(1, 0, 15)
-hrg.generate_points(10000)
-#hrg.draw()
-hrg.draw_degree_distribution()
+hrg.generate_points(740)
+hrg.draw()
+#hrg.draw_degree_distribution()

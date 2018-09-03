@@ -88,3 +88,4 @@ std::string HyperbolicRandomNet::pointsThetaRInfo(){
 		stream << points[i].getTheta() << ',' << points[i].getR() << std::endl;
 	return stream.str();
 }
+
