@@ -10,6 +10,8 @@
 #define M_PI (3.14159265358979323846)
 #endif
 
+#define BUFSIZE 64
+
 /* HyperbolicPoint */
 HyperbolicPoint::HyperbolicPoint(double theta, double r)
 : PolarPoint(theta, r){
@@ -56,23 +58,40 @@ void HyperbolicNet::setPoint(int idx, double theta, double r){
     points[idx].setR(r);
 }
 
-HyperbolicNet *HyperbolicNet::read_hg(){
-    char _;  /* Skipped char */
+HyperbolicNet *HyperbolicNet::read_hg(const char *hg_filename){
+    FILE *fp = stdin;
+    if (hg_filename){
+        fp = fopen(hg_filename, "r");
+        if (!hg_filename) throw NetException("File not avaliable");
+    }
+    
+    char _, buf[BUFSIZE], *b=buf, exit_flag = 0;  /* Skipped char */
     int N, S, I;
     double T, G, K, Z;
-    scanf("N\t%d\tT\t%lf\tG\t%lf\tK\t%lf\tZ\t%lf\tS\t%d\tI\t%d", &N, &T, &G, &K, &Z, &S, &I);
+    fscanf(fp, "N\t%d\tT\t%lf\tG\t%lf\tK\t%lf\tZ\t%lf\tS\t%d\tI\t%d", &N, &T, &G, &K, &Z, &S, &I);
     HyperbolicNet *net = new HyperbolicNet(N, T, G, K, Z, S, I);
     for (int i = 0; i < N; i++){
         int id;
         double theta, r;
-        scanf("%d\t%lf\t%lf", &id, &r, &theta);
+        fscanf(fp, "%d\t%lf\t%lf", &id, &r, &theta);
         net->setPoint(i, theta, r);
     }
-    while (!feof(stdin)){
-        int a, b;
-        scanf("%d\t%d", &a, &b);
-        net->addLink(a-I, b-I);
+    while (1){
+        int x, y;
+        while (1) {
+            *b = fgetc(fp);
+            if (*b == EOF) exit_flag = 1;
+            if (*b == EOF || *b == '\n') break;
+            b++;
+        }
+        *b++ = '\n';
+        *b = 0;
+        b = buf;
+        sscanf(buf, "%d\t%d", &x, &y);
+        net->addLink(x-I, y-I);
+        if (exit_flag) break;
     }
+    if (hg_filename) fclose(fp);
     return net;
 }
 

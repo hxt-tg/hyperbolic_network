@@ -30,7 +30,7 @@ class HyperbolicNet : public UndirectedNet
                                double zeta=1, int S=1, int I=1);
         ~HyperbolicNet();
         void setPoint(int idx, double theta, double r);
-        static HyperbolicNet *read_hg();
+        static HyperbolicNet *read_hg(const char *hg_filename=NULL);
         void printFormatHG();
         void printDetails();
         std::string pointsXYInfo();
