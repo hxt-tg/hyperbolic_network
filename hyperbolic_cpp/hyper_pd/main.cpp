@@ -2,10 +2,25 @@
 #include <fstream>
 #include <vector>
 #include <ctime>
+#include <cstdlib>
+#include <algorithm>
+#include <cfloat>
+#include <limits>
 #include "hypernet.h"
 #include "coordinate.h"
 #include "netlib/random.h"
 #include "netlib/common_net.h"
+
+#define RANGE_ERROR 126
+#define MAX_R DBL_MAX 
+#define _swap(x, y) do{ \
+    auto t = y; \
+    y = x; \
+    x = t; \
+} while(0);
+
+
+
 
 using namespace std;
 
@@ -17,7 +32,7 @@ using namespace std;
 #define REC_STEPS   5000
 #define TRY_TIMES   10
 
-//#define METRIC_CLUSTER
+#define METRIC_CLUSTER
 
 double gamma, beta, b;
 HyperbolicNet *net;
@@ -44,16 +59,28 @@ typedef struct SMetric{
     Strategy stra;  /* Select strategy */
 } Metric;
 
+typedef struct SMetricPercent{
+    double percent; /* Percent of points, in [0, 1]. */
+    double st;      /* Start theta */
+    double et;      /* End theta */
+    Strategy stra;  /* Select strategy */
+} MetricPercent;
+
 #ifdef METRIC_CLUSTER
 void metric_cluster_stra(vector<Metric> &metric, Strategy default_stra){
     for (int i = 0; i < SIZE; i++)
         stra[i] = default_stra;
     HyperbolicPoint *points = net->getPoints();
     for (int j = 0; j < metric.size(); j++){
+        if (metric[j].st < 0 || metric[j].st > 2*M_PI ||
+           metric[j].et < 0 || metric[j].et > 2*M_PI){
+            fprintf(stderr, "Metric value out of range.\n");
+            exit(RANGE_ERROR);
+        }
+        if (metric[j].st > metric[j].et) _swap(metric[j].st, metric[j].et);
         for (int i = 0; i < net->totalVexNum(); i++){
-            if (points[i].getR() > metric[j].er || points[i].getR() < metric[j].sr) continue;
-            if ((metric[j].st > metric[j].et) && points[i].getTheta() > metric[j].st && points[i].getTheta() < metric[j].et || 
-               ((metric[j].st > metric[j].et) && points[i].getTheta() < metric[j].st || points[i].getTheta() > metric[j].et)) continue;
+            if (points[i].getR() < metric[j].sr || points[i].getR() > metric[j].er) continue;
+            if (points[i].getTheta() < metric[j].st || points[i].getTheta() > metric[j].et) continue;
             stra[i] = metric[j].stra;
         }
     }
@@ -62,11 +89,49 @@ void metric_cluster_stra(vector<Metric> &metric, Strategy default_stra){
         stra_cnt[stra[i]]++;
 }
 
+bool _cmp(HyperbolicPoint i,HyperbolicPoint j) { return (i.getR()<j.getR()); }
+
+void metric_cluster_stra_by_percent(vector<MetricPercent> &metric, Strategy default_stra){
+    vector<Metric> target_metric;
+    for (int j = 0; j < metric.size(); j++){
+        if (metric[j].percent < 0 || metric[j].percent > 1 ||
+           metric[j].st < 0 || metric[j].st > 2*M_PI ||
+           metric[j].et < 0 || metric[j].et > 2*M_PI){
+            fprintf(stderr, "Metric value out of range.\n");
+            exit(RANGE_ERROR);
+        }
+        if (metric[j].st > metric[j].et) _swap(metric[j].st, metric[j].et);
+        if (fabs(metric[j].percent) < 1e-7){
+            target_metric.push_back({0, 0, metric[j].st, metric[j].et, metric[j].stra});
+            continue;
+        }
+        vector<HyperbolicPoint> hps;
+        HyperbolicPoint *pts = net->getPoints();
+        double end_r;
+        for (int i = 0; i < net->totalVexNum(); i++)
+            if (pts[i].getTheta() > metric[j].st && pts[i].getTheta() < metric[j].et)
+                hps.push_back(pts[i]);
+        sort (hps.begin(), hps.end(), _cmp);
+        
+        if (metric[j].percent > (double)hps.size()/net->totalVexNum()){
+            fprintf(stdout, "Warning: The No.%d cluster percentage(%g) is larger than the points between (%g, %g). (%d/%d=%g < %g)\n",
+                j+1, metric[j].percent, metric[j].st, metric[j].et, hps.size(), net->totalVexNum(), 
+                (double)hps.size()/net->totalVexNum(), metric[j].percent);
+            end_r = MAX_R;
+        } else 
+            end_r = hps[(metric[j].percent * net->totalVexNum())-1].getR();
+        target_metric.push_back({0, end_r, metric[j].st, metric[j].et, metric[j].stra});
+    }
+    metric_cluster_stra(target_metric, default_stra);
+    cout << stra_cnt[0] << endl;
+    exit(0);
+}
+
 void init_by_metric_cluster(){
-    Metric m0 = {0, 99999, 0, M_PI, STRA_C};
-    vector<Metric> metric;
+    MetricPercent m0 = {0.1, 0.5*M_PI, M_PI, STRA_C};
+    vector<MetricPercent> metric;
     metric.push_back(m0);
-    metric_cluster_stra(metric, STRA_D);
+    metric_cluster_stra_by_percent(metric, STRA_D);
     //cout << stra_cnt[0] << ", " << stra_cnt[1] << endl;
 }
 #endif

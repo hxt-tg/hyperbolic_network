@@ -2,11 +2,13 @@
 #include <fstream>
 #include <vector>
 #include <ctime>
-#include "netlib/random.h"
-#include "netlib/sfnet.h"
-#include "hyper.h"
+#include <cstdlib>
+#include "hypernet.h"
 #include "coordinate.h"
+#include "netlib/random.h"
+#include "netlib/common_net.h"
 
+#define RANGE_ERROR 126
 
 using namespace std;
 
@@ -20,6 +22,8 @@ using namespace std;
 #define MC_STEPS    100000
 #define REC_STEPS   5000
 #define TRY_TIMES   10
+
+//#define METRIC_CLUSTER
 
 double gamma, beta, b;
 HyperbolicRandomNet *net;
@@ -45,17 +49,22 @@ typedef struct SMetric{
     Strategy stra;  /* Select strategy */
 } Metric;
 
-
-void metric_cluster_stra(vector<Metric> &metric, Strategy default_stra){
+#ifdef METRIC_CLUSTER
+void metric_cluster_stra(vector<Metric> &metrics, Strategy default_stra){
     for (int i = 0; i < SIZE; i++)
         stra[i] = default_stra;
-    HyperbolicPoint *points = net->get_points();
-    for (int j = 0; j < metric.size(); j++){
+    HyperbolicPoint *points = net->getPoints();
+    for (int j = 0; j < metrics.size(); j++){
+        if (metrics[j].st < 0 || metrics[j].st > 2*M_PI ||
+           metrics[j].et < 0 || metrics[j].et > 2*M_PI){
+            fprintf(stderr, "Metric value out of range.\n");
+            exit(RANGE_ERROR);
+        }
         for (int i = 0; i < net->totalVexNum(); i++){
-            if (points[i].getR() > metric[j].er || points[i].getR() < metric[j].sr) continue;
-            if ((metric[j].st > metric[j].et) && points[i].getTheta() > metric[j].st && points[i].getTheta() < metric[j].et || 
-               ((metric[j].st > metric[j].et) && points[i].getTheta() < metric[j].st || points[i].getTheta() > metric[j].et)) continue;
-            stra[i] = metric[j].stra;
+            if (points[i].getR() > metrics[j].er || points[i].getR() < metrics[j].sr) continue;
+            if ((metrics[j].st > metrics[j].et) && points[i].getTheta() > metrics[j].st && points[i].getTheta() < metrics[j].et || 
+               ((metrics[j].st > metrics[j].et) && points[i].getTheta() < metrics[j].st || points[i].getTheta() > metrics[j].et)) continue;
+            stra[i] = metrics[j].stra;
         }
     }
     stra_cnt[0] = stra_cnt[1] = 0;
@@ -63,66 +72,61 @@ void metric_cluster_stra(vector<Metric> &metric, Strategy default_stra){
         stra_cnt[stra[i]]++;
 }
 
-void init(){
+void init_by_metric_cluster(){
     Metric m0 = {0, 99999, 0, M_PI, STRA_C};
     vector<Metric> metric;
     metric.push_back(m0);
     metric_cluster_stra(metric, STRA_D);
-    cout << stra_cnt[0] << ", " << stra_cnt[1] << endl;
-    exit(0);
-    // pass
+    //cout << stra_cnt[0] << ", " << stra_cnt[1] << endl;
+}
+#endif
+
+void init(){
+    stra_cnt[0] = stra_cnt[1] = 0;
+    for (int i = 0; i < SIZE; i++)
+    	stra_cnt[stra[i] = randi(2)]++;
 }
 
 double payoff(int x){
-    return 0;
+	double p = 0;
+	NeiArr xnei = net->getNeighbors(x);
+	for (int i = 0; i < net->vexDegree(x); i++)
+		p += payoff_matrix[stra[x]][stra[xnei[i]]];
+	return p;
 }
 
 void update_stra(int x){
-    ; 
+    if (net->vexDegree(x) == 0) return ;
+    NeiArr xnei = net->getNeighbors(x);
+    int y = xnei[(int)randi(net->vexDegree(x))];
+    /* Update strategy, if same then exit */
+    if (stra[x] == stra[y]) return ;
+    if (randf() < 1/(1+exp((payoff(x) - payoff(y))/K))){
+        stra_cnt[stra[x]]--;
+        stra[x] = stra[y];
+        stra_cnt[stra[x]]++;
+    }
 }
 
-#include "netlib/_ud_net.h"
 int main(){
-    
-    sgenrand(time(NULL));
-    
-    
-    return 0;
-    /* n_points, zeta, avg_degree, T, gamma */
-    /*
-    char fname_net[80], fname_point[80];
-    for (double T=0.3; T<0.701; T+=0.05){
-        double avg_deg = 0;
-        for (int j = 0; j < 30; j ++){
-            HyperbolicRandomNet net(2000, 1, 6, 0.3, 3);
-            avg_deg += net.avgDegree();
-        }
-        cout << T << ", " << avg_deg/30.0 << endl;
-        
-        
-        sprintf(fname_net, "net.%g.csv", T);
-        sprintf(fname_point, "points.%g.csv", T);
-        ofstream fnet, fpoints;
-        fnet.open(fname_net);
-        fpoints.open(fname_point);
-        fnet << net.links_csv() << endl;
-        fpoints << net.pointsThetaRInfo() << endl;
-        fnet.close();
-        fpoints.close();
-        
-    }
-    */
-    
+    //createNetFromFile_FunctionTest();
     ofstream file_aver, file_freq;
     file_aver.open("average.txt");
     file_freq.open("frequency.txt");
     sgenrand(RANDOMIZE);
     net = new HyperbolicRandomNet(SIZE, 1, 6, 0.3, 3);
+    net->buildNeighbors();
     int x, step;
     double fc, afc=0;  /* Frequency of C and last 5000 step average */
-    for (b = 1; b < 1.5; b += 0.01){
+    for (b = 2.0; b < 2.5; b += 0.05){
         update_matrix(b);
+        
+#ifdef METRIC_CLUSTER
+        init_by_metric_cluster();
+#else
         init();
+#endif
+
         for (step = 0; step < MC_STEPS; step++){
             for (x = 0; x < SIZE; x ++)
                 update_stra((int)randi(SIZE));
@@ -135,15 +139,17 @@ int main(){
             
         	if ((!stra_cnt[0]) || (!stra_cnt[1])){
                 if (step++ < MC_STEPS-REC_STEPS) afc = stra_cnt[0] ? 1 : 0;
-                break;
+                break; 
             };
         }
         if (step > MC_STEPS-REC_STEPS)
             afc /= step + REC_STEPS - MC_STEPS;
         file_aver << b << '\t' << afc << endl;
-        cout << "\rb: " << b << "\tavg_C: " << afc*100 << "              " << endl;
+        cout << "\rb: " << b << "\t   avg_C: " << afc*100 << "              " << endl;
     }
     file_aver.close();
     file_freq.close();
+    delete net;
     return 0;
+    
 }
