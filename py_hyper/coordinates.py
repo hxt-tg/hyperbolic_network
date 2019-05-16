@@ -86,7 +86,7 @@ class Polar:
         return self.__r
     
     @r.setter
-    def y(self, value: float):
+    def r(self, value: float):
         self.__r = value
     
     @property

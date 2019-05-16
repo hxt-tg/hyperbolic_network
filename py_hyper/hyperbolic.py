@@ -3,6 +3,8 @@ from math import *
 import numpy as np
 from random import random
 from coordinates import *
+import matplotlib
+matplotlib.pyplot.switch_backend('Qt5Agg')
 
 
 class HyperbolicRandomGraph:
@@ -33,9 +35,9 @@ class HyperbolicRandomGraph:
         p = self.__points
         for i in range(len(p)):
             for j in range(i+1, len(p)):
-                if random()<1/(exp(0.83*(Hyperbolic.distance(p[i],
-                                                             p[j]) - self.__max_r))):
-#                 if Hyperbolic.distance(p[i], p[j]) < self.__max_r:
+#                if random()<1/(exp(0.83*(Hyperbolic.distance(p[i],
+#                                                             p[j]) - self.__max_r))):
+                 if Hyperbolic.distance(p[i], p[j]) < self.__max_r:
                     self.__links.append((p[i], p[j]))
                     self.__link_pairs.append((i, j))
         Hyperbolic.setZeta(raw_zeta)
@@ -44,7 +46,7 @@ class HyperbolicRandomGraph:
             self.__degrees[p1] += 1
             self.__degrees[p2] += 1
     
-    def draw(self, linecolor='b', dotcolor='k', linewidth=0.25, 
+    def draw(self, linecolor='k', dotcolor='k', linewidth=0.25,
                     markersize=2, large_markersize=5, large_dotcolor='r'):
         x = []
         y = []
@@ -60,7 +62,7 @@ class HyperbolicRandomGraph:
         for p1, p2 in self.__links:
             plt.plot([p1.x, p2.x], [p1.y, p2.y], linecolor+'-', linewidth = linewidth)
         plt.plot(x, y, dotcolor + '.', ms = markersize)
-        plt.plot(large_x, large_y, large_dotcolor + '.', ms = large_markersize)
+        #plt.plot(large_x, large_y, large_dotcolor + '.', ms = large_markersize)
         plt.show()
         
     def draw_degree_distribution(self):

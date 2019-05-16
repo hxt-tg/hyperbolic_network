@@ -25,7 +25,7 @@
 using namespace std;
 
 #define RANDOMIZE   3145215
-#define SIZE        5000
+#define SIZE        20000
 #define REFRESH_FRE 50
 #define K           0.1
 #define MC_STEPS    10000
@@ -34,7 +34,7 @@ using namespace std;
 
 #define METRIC_CLUSTER
 
-double gamma, beta, b;
+double gamma, beta, T, S, theta, r;
 HyperbolicNet *net;
 
 typedef enum {
@@ -44,11 +44,12 @@ typedef enum {
 
 int stra_cnt[2];
 int stra[SIZE];
-double payoff_matrix[2][2] = {{1, 0},
-                              {0, 0}};
-#define update_matrix(b) do{\
-    payoff_matrix[1][0]=b;\
-    }while(0)
+double payoff_matrix[2][2] = {{1, S},
+                              {T, 0}};
+#define update_matrix(T, S) do{\
+    payoff_matrix[0][1]=S;\
+    payoff_matrix[1][0]=T;\
+}while(0)
 
 
 typedef struct SMetric{
@@ -123,16 +124,17 @@ void metric_cluster_stra_by_percent(vector<MetricPercent> &metric, Strategy defa
         target_metric.push_back({0, end_r, metric[j].st, metric[j].et, metric[j].stra});
     }
     metric_cluster_stra(target_metric, default_stra);
-    cout << stra_cnt[0] << endl;
-    exit(0);
 }
 
 void init_by_metric_cluster(){
-    MetricPercent m0 = {0.1, 0.5*M_PI, M_PI, STRA_C};
+    MetricPercent m0 = {r, 0, theta*M_PI, STRA_C};
     vector<MetricPercent> metric;
     metric.push_back(m0);
     metric_cluster_stra_by_percent(metric, STRA_D);
-    //cout << stra_cnt[0] << ", " << stra_cnt[1] << endl;
+    // Metric m0 = {0, r, 0, theta*M_PI, STRA_C};
+    // vector<Metric> metric;
+    // metric.push_back(m0);
+    // metric_cluster_stra(metric, STRA_D);
 }
 #endif
 
@@ -180,26 +182,29 @@ int main(int argc, char** argv) {
     file_aver.open("average.txt");
     file_freq.open("frequency.txt");
     sgenrand(RANDOMIZE);
-    net = HyperbolicNet::read_hg("./5000.hg");
+    net = HyperbolicNet::read_hg("./20000.hg");
     net->buildNeighbors();
     int x, step;
     double fc, afc=0;  /* Frequency of C and last 5000 step average */
-    for (b = 2.0; b < 2.5; b += 0.05){
-        update_matrix(b);
+    file_aver << "T,S,theta,r,C" << endl;
+    for (T = 1.2; T <= 1.2; T += 0.1)
+    for (S = -0.2; S <= -0.2; S += 0.1)
+    for (r = 0.05; r <= 1; r += 0.05)
+    for (theta = 0.1; theta <= 2; theta += 0.1) {
+        update_matrix(T, S);
         
 #ifdef METRIC_CLUSTER
         init_by_metric_cluster();
 #else
         init();
 #endif
-
         for (step = 0; step < MC_STEPS; step++){
             for (x = 0; x < SIZE; x ++)
                 update_stra((int)randi(SIZE));
             
             fc = stra_cnt[0]/(double)SIZE;
             if (step > MC_STEPS-REC_STEPS-1) afc += fc;
-        	file_freq << step << '\t' << fc << endl;
+        	file_freq << step << ',' << fc << endl;
             if (step % REFRESH_FRE == 0)
             cout << "\rStep: " << step << "\tC: " << fc*100 << "              ";
             
@@ -210,8 +215,9 @@ int main(int argc, char** argv) {
         }
         if (step > MC_STEPS-REC_STEPS)
             afc /= step + REC_STEPS - MC_STEPS;
-        file_aver << b << '\t' << afc << endl;
-        cout << "\rb: " << b << "\t   avg_C: " << afc*100 << "              " << endl;
+        file_aver << T << ',' << S << ',' << theta << ',' << r << ',' << afc << endl;
+        cout << "\rT: " << T << "\tS: " << S << "\ttheta: " << theta << "\tr: " << r 
+             << "\t   avg_C: " << afc*100 << "              " << endl;
     }
     file_aver.close();
     file_freq.close();

@@ -3,7 +3,7 @@
 #include <vector>
 #include <ctime>
 #include <cstdlib>
-#include "hypernet.h"
+#include "hyper.h"
 #include "coordinate.h"
 #include "netlib/random.h"
 #include "netlib/common_net.h"
@@ -49,6 +49,7 @@ typedef struct SMetric{
     Strategy stra;  /* Select strategy */
 } Metric;
 
+#define METRIC_CLUSTER 
 #ifdef METRIC_CLUSTER
 void metric_cluster_stra(vector<Metric> &metrics, Strategy default_stra){
     for (int i = 0; i < SIZE; i++)
